@@ -4,15 +4,16 @@
  * and open the template in the editor.
  */
 package aprioriimplementation;
+import java.util.Objects;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.Collections;
+import java.util.Comparator;
+
 
 /**
  *
@@ -25,168 +26,168 @@ public class AprioriGenerator<I>
     protected int listCount = 1;
     
     /**
-     * Generates the frequent itemset data.
+     * This generates a list of frequent itemsets
      * 
-     * @param transactionList the list of transactions to mine.
-     * @param minimumSupport  the minimum support.
-     * @return the object describing the result of this task.
+     * @param transactionList: the list of transactions to prune
+     * @param minSupport: minimum support
+     * @return frequentItemset<>: result from finding the frequent itemsets
      */
-    public FrequentItemset<I> generate(List<Set<I>> transactionList, double minimumSupport) 
+    public FrequentItemset<I> generate(List<Set<I>> transactionList, double minSupport) 
     {
-        Objects.requireNonNull(transactionList, "The itemset list is empty.");
-        checkSupport(minimumSupport);
-
+        Objects.requireNonNull(transactionList, "The list of itemsets is empty.");
+        checkSupport(minSupport);
+        
+        //check to see if the lsit is empty
         if (transactionList.isEmpty()) 
         {
             return null;
         }
 
-        // Maps each itemset to its support count. Support count is simply the 
-        // number of times an itemset appeares in the transaction list.
-        Map<Set<I>, Integer> supportCountMap = new HashMap<>();
+        //this will map each itemset to its support count (number of times an itemset will appear in the transaction list)
+        Map<Set<I>, Integer> supCountMap = new HashMap<>();
 
-        // Get the list of 1-itemsets that are frequent.
-        List<Set<I>> frequentItemList = findFrequentItems(transactionList, supportCountMap, minimumSupport);
+        //get the list of 1-frequent itemset
+        List<Set<I>> frequentItems = findFrequentItems(transactionList, supCountMap, minSupport);
 
-        // Maps each 'k' to the list of frequent k-itemsets. 
+        //maps to the list of frequent k-itemsets. 
         Map<Integer, List<Set<I>>> map = new HashMap<>();
-        map.put(1, frequentItemList);
+        map.put(1, frequentItems);
 
-        // 'k' denotes the cardinality of itemsets processed at each iteration
-        // of the following loop.
+        //k is an iterator for the candidates
         int k = 1;
 
         do 
         {
             ++k;
 
-            // First generate the candidates.
-            List<Set<I>> candidateList = 
-                    generateCandidates(map.get(k - 1));
+            //generate the candidates.
+            List<Set<I>> candidList = generateCandidates(map.get(k - 1));
 
+            //for each transaction in the list, create a candidate list and store in the support map
             for (Set<I> transaction : transactionList) 
             {
-                List<Set<I>> candidateList2 = subset(candidateList, transaction);
+                List<Set<I>> candidList2 = subset(candidList, transaction);
                 
-                for (Set<I> itemset : candidateList2) 
+                for (Set<I> itemset : candidList2) 
                 {
-                    supportCountMap.put(itemset, supportCountMap.getOrDefault(itemset, 0) + 1);
+                    //map keys to values
+                    supCountMap.put(itemset, supCountMap.getOrDefault(itemset, 0) + 1);
                 }
             }
-            
-            map.put(k, getNextItemsets(candidateList, supportCountMap, minimumSupport, transactionList.size()));
+            //get next itemset
+            map.put(k, getNextItemsets(candidList, supCountMap, minSupport, transactionList.size()));
 
         } while (!map.get(k).isEmpty());
         
-        return new FrequentItemset<>(extractFrequentItemsets(map), supportCountMap, minimumSupport, transactionList.size());
+        return new FrequentItemset<>(extractFrequentItemsets(map), supCountMap, minSupport, transactionList.size());
     }
 
     /**
-     * This method simply concatenates all the lists of frequent itemsets into
-     * one list.
+     * concatenates all the lists of frequent itemsets into one arraylist
      * 
-     * @param  map the map mapping an itemset size to the list of frequent
-     *             itemsets of that size.
+     * @param  map: maps itemset size to list of frequent itemsets of that specific size
      * @return the list of all frequent itemsets.
      */
     private List<Set<I>> extractFrequentItemsets(Map<Integer, List<Set<I>>> map) 
     {
-        List<Set<I>> ret = new ArrayList<>();
-
+        List<Set<I>> temp = new ArrayList<>();
+        //goes through all the lists
         for (List<Set<I>> itemsetList : map.values()) 
         {
-            ret.addAll(itemsetList);
+            //add to new list
+            temp.addAll(itemsetList);
         }
 
-        return ret;
+        return temp;
     }
 
     /**
-     * This method gathers all the frequent candidate itemsets into a single 
-     * list.
+     * gathers all frequent candidate itemsets into a single list
      * 
-     * @param candidateList   the list of candidate itemsets.
-     * @param supportCountMap the map mapping each itemset to its support count.
-     * @param minimumSupport  the minimum support.
-     * @param transactions    the total number of transactions.
-     * @return a list of frequent itemset candidates.
+     * @param candidList: list of candidate itemsets
+     * @param supCountMap: map of each itemset to its support count
+     * @param minSupport: min support
+     * @param transactions: total num of transactions
+     * @return temp: arraylist of frequent itemsets for candidate list
      */
-    private List<Set<I>> getNextItemsets(List<Set<I>> candidateList, Map<Set<I>, Integer> supportCountMap, double minimumSupport, int transactions) 
+    private List<Set<I>> getNextItemsets(List<Set<I>> candidList, Map<Set<I>, Integer> supCountMap, double minSupport, int transactions) 
     {
-        List<Set<I>> ret = new ArrayList<>(candidateList.size());
-
-        for (Set<I> itemset : candidateList) 
+        List<Set<I>> temp = new ArrayList<>(candidList.size());
+        
+        //go through itemlist
+        for (Set<I> itemset : candidList) 
         {
-            if (supportCountMap.containsKey(itemset)) 
+            if (supCountMap.containsKey(itemset)) 
             {
-                int supportCount = supportCountMap.get(itemset);
-                double support = 1.0 * supportCount / transactions;
+                int supCount = supCountMap.get(itemset);
+                double support = 1.0 * supCount / transactions;
 
-                if (support >= minimumSupport) 
+                if (support >= minSupport) 
                 {
-                    ret.add(itemset);
+                    temp.add(itemset);
                 }
             }
         }
         
-        return ret;
+        return temp;
     }
 
     /**
-     * Computes the list of itemsets that are all subsets of 
-     * {@code transaction}.
+     * makes list of itemsets that are subsets of transaction
      * 
-     * @param candidateList the list of candidate itemsets.
-     * @param transaction   the transaction to test against.
-     * @return the list of itemsets that are subsets of {@code transaction}
-     *         itemset.
+     * @param candidList: the list of candidate itemsets
+     * @param transaction:   the transaction to test against
+     * @return temp: arraylist of itemsets that are subsets of transaction
      */
-    private List<Set<I>> subset(List<Set<I>> candidateList, Set<I> transaction) 
+    private List<Set<I>> subset(List<Set<I>> candidList, Set<I> transaction) 
     {
-        List<Set<I>> ret = new ArrayList<>(candidateList.size());
+        List<Set<I>> temp = new ArrayList<>(candidList.size());
 
-        for (Set<I> candidate : candidateList) 
+        for (Set<I> candidate : candidList) 
         {
+            //compares transaction with the candidate itemsets
             if (transaction.containsAll(candidate)) 
             {
-                ret.add(candidate);
+                temp.add(candidate);
             }
         }
 
-        return ret;
+        return temp;
     }
 
     /**
-     * Generates the next candidates. This is so called F_(k - 1) x F_(k - 1) 
-     * method.
+     * makes the next candidates (F(k - 1) * F(k - 1) method)
      * 
-     * @param itemsetList the list of source itemsets, each of size <b>k</b>.
-     * @return the list of candidates each of size <b>k + 1</b>.
+     * @param itemsetList: the list of source itemsets, each of size k.
+     * @return temp: arraylist of candidates each of size k + 1.
      */
     private List<Set<I>> generateCandidates(List<Set<I>> itemsetList) 
     {
-        List<List<I>> list = new ArrayList<>(itemsetList.size());
-
+        List<List<I>> tempList = new ArrayList<>(itemsetList.size());
+        
+        //add to temp list containing source itemsets
         for (Set<I> itemset : itemsetList) 
         {
             List<I> l = new ArrayList<>(itemset);
             Collections.<I>sort(l, ITEM_COMPARATOR);
-            list.add(l);
+            tempList.add(l);
         }
+        
+        //get size of list
+        int size = tempList.size();
 
-        int listSize = list.size();
+        List<Set<I>> temp = new ArrayList<>(size);
 
-        List<Set<I>> ret = new ArrayList<>(listSize);
-
-        for (int i = 0; i < listSize; ++i) 
+        //merge the itemsets together and add them if they are candidate
+        for (int i = 0; i < size; ++i) 
         {
-            for (int j = i + 1; j < listSize; ++j) 
+            for (int j = i + 1; j < size; ++j) 
             {
-                Set<I> candidate = tryMergeItemsets(list.get(i), list.get(j));
+                Set<I> candidate = mergeItemsets(tempList.get(i), tempList.get(j));
 
                 if (candidate != null) 
                 {
-                    ret.add(candidate);
+                    temp.add(candidate);
                 }
             }
         }
@@ -199,47 +200,55 @@ public class AprioriGenerator<I>
         System.out.printf("L%d: %9s\n", listCount, itemsetList);
         listCount++;
         
-        return ret;
+        return temp;
     }
 
     /**
-     * Attempts the actual construction of the next itemset candidate.
-     * @param itemset1 the list of elements in the first itemset.
-     * @param itemset2 the list of elements in the second itemset.
-     * 
-     * @return a merged itemset candidate or {@code null} if one cannot be 
-     *         constructed from the input itemsets.
+     * constructs next itemset candidate
+     *
+     * @param set1: first itemset list
+     * @param set2: second itemset list
+     * @return temp: arraylist of merged candidate else null if didn't work
      */
-    private Set<I> tryMergeItemsets(List<I> itemset1, List<I> itemset2) 
+    private Set<I> mergeItemsets(List<I> set1, List<I> set2) 
     {
-        int length = itemset1.size();
+        int length = set1.size();
 
+        //if set1 and set2 are not equal, return null
         for (int i = 0; i < length - 1; ++i) 
         {
-            if (!itemset1.get(i).equals(itemset2.get(i))) 
+            if (!set1.get(i).equals(set2.get(i))) 
             {
                 return null;
             }
         }
 
-        if (itemset1.get(length - 1).equals(itemset2.get(length - 1))) 
+        //if the lengths of the sets are equal, return null
+        if (set1.get(length - 1).equals(set2.get(length - 1))) 
         {
             return null;
         }
 
-        Set<I> ret = new HashSet<>(length + 1);
+        Set<I> temp = new HashSet<>(length + 1);
 
+        //else add the first set to the temp arraylist
         for (int i = 0; i < length - 1; ++i) 
         {
-            ret.add(itemset1.get(i));
+            temp.add(set1.get(i));
         }
 
-        ret.add(itemset1.get(length - 1));
-        ret.add(itemset2.get(length - 1));
+        //merge
+        temp.add(set1.get(length - 1));
+        temp.add(set2.get(length - 1));
         
-        return ret;
+        return temp;
     }
 
+    /**
+     * a comparator interface used to order the objects
+     * 
+     * @return sorted objects
+     */
     private static final Comparator ITEM_COMPARATOR = new Comparator() 
     {
 
@@ -252,59 +261,65 @@ public class AprioriGenerator<I>
     };
 
     /**
-     * Computes the frequent itemsets of size 1.
+     * makes frequent itemsets of size 1.
      * 
-     * @param itemsetList     the entire database of transactions.
-     * @param supportCountMap the support count map to which to write the 
-     *                        support counts of each item.
-     * @param minimumSupport  the minimum support.
-     * @return                the list of frequent one-itemsets.
+     * @param itemsetList: the whole database
+     * @param supCountMap: map of each itemset to its support count
+     * @param minSupport: min support.
+     * @return frequentItemsets: the list of frequent 1-itemsets.
      */
-    private List<Set<I>> findFrequentItems(List<Set<I>> itemsetList, Map<Set<I>, Integer> supportCountMap, double minimumSupport) {
+    private List<Set<I>> findFrequentItems(List<Set<I>> itemsetList, Map<Set<I>, Integer> supCountMap, double minSupport) {
         Map<I, Integer> map = new HashMap<>();
 
-        // Count the support counts of each item.
+        //count the num of sup counts of each item.
         for (Set<I> itemset : itemsetList) 
         {
             for (I item : itemset) 
             {
-                Set<I> tmp = new HashSet<>(1);
-                tmp.add(item);
+                Set<I> temp = new HashSet<>(1);
+                temp.add(item);
 
-                if (supportCountMap.containsKey(tmp)) 
+                if (supCountMap.containsKey(temp)) 
                 {
-                    supportCountMap.put(tmp, supportCountMap.get(tmp) + 1);
+                    supCountMap.put(temp, supCountMap.get(temp) + 1);
                 } 
                 else 
                 {
-                    supportCountMap.put(tmp, 1);
+                    supCountMap.put(temp, 1);
                 }
 
                 map.put(item, map.getOrDefault(item, 0) + 1);
             }
         }
+        //this prints database
         System.out.printf("C%d: %9s\n", candidateCount, itemsetList);
         candidateCount++;
-        List<Set<I>> frequentItemsetList = new ArrayList<>();
+        List<Set<I>> frequentItemsets = new ArrayList<>();
 
+        //prune
         for (Map.Entry<I, Integer> entry : map.entrySet()) 
         {
-            if (1.0 * entry.getValue() / map.size() >= minimumSupport) 
+            if (1.0 * entry.getValue() / map.size() >= minSupport) 
             {
                 Set<I> itemset = new HashSet<>(1);
                 itemset.add(entry.getKey());
-                frequentItemsetList.add(itemset);
+                frequentItemsets.add(itemset);
             }
         }
 
-        return frequentItemsetList;
+        return frequentItemsets;
     }
 
+    /**
+     * checks to make sure that the min support isn't too big, too small, or invalid input
+     * 
+     * @param support: support percentage
+     */
     private void checkSupport(double support) 
     {
         if (Double.isNaN(support)) 
         {
-            throw new IllegalArgumentException("The input support is NaN.");
+            throw new IllegalArgumentException("The input support is invalid.");
         }
 
         if (support > 1.0) 
